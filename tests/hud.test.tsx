@@ -157,7 +157,7 @@ describe('model', () => {
   test('warns when the 5-hour window fills before it resets', async () => {
     // Two hours in, 60% used: the last 40% goes in 1h 20m, before the reset in 3h.
     expect(paceWarning({ kind: 'five_hour', percentUsed: 60, resetsAt: iso(NOW + 3 * HOUR) }, NOW)).toBe(
-      'full in 1h 20m',
+      'full in 1h20m',
     )
     expect(paceWarning({ kind: 'five_hour', percentUsed: 20, resetsAt: iso(NOW + 3 * HOUR) }, NOW)).toBeNull()
     expect(
@@ -167,8 +167,8 @@ describe('model', () => {
   })
 
   test('resets read as a countdown, in days past a day', async () => {
-    expect(formatReset(NOW + 2 * HOUR + 18 * MINUTE, NOW)).toBe('2h 18m')
-    expect(formatReset(NOW + 2 * DAY + 3 * HOUR + 7 * MINUTE, NOW)).toBe('2d 3h')
+    expect(formatReset(NOW + 2 * HOUR + 18 * MINUTE, NOW)).toBe('2h18m')
+    expect(formatReset(NOW + 2 * DAY + 3 * HOUR + 7 * MINUTE, NOW)).toBe('2d3h')
     expect(formatReset(NOW + 5 * DAY, NOW)).toBe('5d')
     expect(formatReset(NOW + 40_000, NOW)).toBe('40s')
   })
@@ -176,7 +176,7 @@ describe('model', () => {
   test('each column reads short, on one line, the ring beside it', async () => {
     const list = cells()
     expect(list.map(cell => cell.key)).toEqual(['five_hour', 'seven_day', 'seven_day_fable', 'cache'])
-    expect(textOf(list, 'five_hour')).toBe('Session 34% ↻ 2h 18m · Time 54%')
+    expect(textOf(list, 'five_hour')).toBe('Session 34% ↻ 2h18m · Time 54%')
     expect(textOf(list, 'seven_day')).toBe('Weekly 23% ↻ 5d · Time 29%')
     expect(textOf(list, 'seven_day_fable')).toBe('Fable 9% ↻ 5d · Time 29%')
     expect(textOf(list, 'cache')).toBe('Cache · Warm · 58m · Hit 92% · Warmth 98%')
@@ -221,28 +221,28 @@ describe('model', () => {
 
   test('short of room the Time figure goes, the windows together; the cache its Warmth, then its word', async () => {
     const wide = fitCells(cells(), 260)
-    expect(textOf(wide, 'five_hour')).toBe('Session 34% ↻ 2h 18m · Time 54%')
+    expect(textOf(wide, 'five_hour')).toBe('Session 34% ↻ 2h18m · Time 54%')
     expect(textOf(wide, 'cache')).toBe('Cache · Warm · 58m · Hit 92% · Warmth 98%')
 
-    // 120 columns on the terminal: 27 cells a line after the ring and the gap.
+    // 120 columns on the terminal: 24 cells a line after the ring and the gap.
     const narrow = fitCells(cells(), 120)
-    expect(textOf(narrow, 'five_hour')).toBe('Session 34% ↻ 2h 18m')
+    expect(textOf(narrow, 'five_hour')).toBe('Session 34% ↻ 2h18m')
     expect(textOf(narrow, 'seven_day')).toBe('Weekly 23% ↻ 5d')
     expect(textOf(narrow, 'seven_day_fable')).toBe('Fable 9% ↻ 5d')
-    // The cache's line with its word is 28: one over, so the word goes.
+    // The cache's line with its word is 28: over, so the word goes; it fits from 136 columns.
     expect(textOf(narrow, 'cache')).toBe('Cache · 58m · Hit 92%')
-    expect(textOf(fitCells(cells(), 124), 'cache')).toBe('Cache · Warm · 58m · Hit 92%')
+    expect(textOf(fitCells(cells(), 136), 'cache')).toBe('Cache · Warm · 58m · Hit 92%')
 
-    // 100 columns: 22 cells a line.
+    // 100 columns: 20 cells a line.
     const tight = fitCells(cells(), 100)
-    expect(textOf(tight, 'five_hour')).toBe('Session 34% ↻ 2h 18m')
+    expect(textOf(tight, 'five_hour')).toBe('Session 34% ↻ 2h18m')
     expect(textOf(tight, 'seven_day')).toBe('Weekly 23% ↻ 5d')
     expect(textOf(tight, 'seven_day_fable')).toBe('Fable 9% ↻ 5d')
     expect(textOf(tight, 'cache')).toBe('Cache · 58m · Hit 92%')
 
-    // The desktop's ring takes more of the band's cells: 112 columns there is 21 a line.
+    // The desktop's ring takes more of the band's cells: 112 columns there is 18 a line.
     const desktop = fitCells(cells(), 112, 6)
-    expect(textOf(desktop, 'five_hour')).toBe('Session 34% ↻ 2h 18m')
+    expect(textOf(desktop, 'five_hour')).toBe('Session 34% ↻ 2h18m')
     expect(textOf(desktop, 'cache')).toBe('Cache · 58m · Hit 92%')
   })
 })
@@ -296,18 +296,20 @@ test('the band draws four columns, a ring then a line of text in each, one row',
     // Each column one row: its ring, then its line, centered on each other.
     const columns = boxes.filter(box => box.props.width !== undefined)
     expect(columns.map(box => [box.props.width, box.props.flexDirection, box.props.alignItems])).toEqual(
-      Array(4).fill(['25%', 'row', 'center']),
+      Array(4).fill(['23%', 'row', 'center']),
     )
     expect(await ui.find({ type: 'Button' })).toBeUndefined()
-    // 140 columns: 32 cells a line on the terminal, where the Time figures fit;
-    // 28 on the desktop, whose ring takes more, where they go. A line is its
-    // pieces side by side, each a Text of its own that neither shrinks nor wraps.
+    // 140 columns: 29 cells a line on the terminal, 25 on the desktop, whose
+    // ring takes more: the Time figures go on both, the cache's word on the
+    // desktop. A line is its pieces side by side, each a Text of its own that
+    // neither shrinks nor wraps. The cost closes the row.
     const texts = await ui.findAll({ type: 'Text' })
     const joined = texts.map(one => one.text).join('')
-    expect(joined).toContain(surface === 'terminal' ? 'Session 34% ↻ 2h 18m · Time 54%' : 'Session 34% ↻ 2h 18mWeekly')
+    expect(joined).toContain('Session 34% ↻ 2h18m')
     expect(joined).toContain('Fable 9% ↻ 5d')
-    expect(joined).toContain('Cache · Warm · 58m · Hit 92%')
-    expect(joined.includes('Time')).toBe(surface === 'terminal')
+    expect(joined).toContain(surface === 'terminal' ? 'Cache · Warm · 58m · Hit 92%$1.23' : 'Cache · 58m · Hit 92%$1.23')
+    expect(joined).not.toContain('Time')
+    expect(texts.at(-1)?.text).toBe('$1.23')
     const lines = boxes.filter(box => box.props.flexWrap === 'nowrap' && box.props.width === undefined)
     expect(lines.length).toBe(4)
     expect(lines.every(box => box.props.overflow === 'hidden')).toBe(true)

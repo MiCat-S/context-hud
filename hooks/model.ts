@@ -12,8 +12,10 @@ const PACE_MIN_ELAPSED = 5 * MINUTE
 /** A reading from the engine's cache older than this says how old it is. */
 const STALE_AFTER = 10 * MINUTE
 
-/** The card's four columns: the session, the week, a model's week, the cache. */
+/** The card's four ring columns: the session, the week, a model's week, the cache. */
 export const COLUMNS = 4
+/** Each ring column's share of the band; what is left at the right holds the cost. */
+export const COLUMN_SHARE_PCT = 23
 /** Cells kept clear at the right of each column, between it and the next. */
 export const SLOT_GAP = 1
 /** Cells the terminal's ring takes at the left of a column's line, its space included. */
@@ -225,12 +227,12 @@ export function formatDuration(ms: number): string {
   if (total >= DAY) {
     const d = Math.floor(total / DAY)
     const h = Math.floor((total % DAY) / HOUR)
-    return h === 0 ? `${d}d` : `${d}d ${h}h`
+    return h === 0 ? `${d}d` : `${d}d${h}h`
   }
   if (total >= HOUR) {
     const h = Math.floor(total / HOUR)
     const m = Math.floor((total % HOUR) / MINUTE)
-    return m === 0 ? `${h}h` : `${h}h ${m}m`
+    return m === 0 ? `${h}h` : `${h}h${m}m`
   }
   if (total >= MINUTE) {
     return `${Math.floor(total / MINUTE)}m`
@@ -239,7 +241,7 @@ export function formatDuration(ms: number): string {
   return `${Math.ceil(total / 1000)}s`
 }
 
-/** The countdown to a reset: `2h 18m`, `5d 3h`. */
+/** The countdown to a reset: `2h18m`, `5d3h`. */
 export function formatReset(resetsAt: number, now: number): string {
   return formatDuration(resetsAt - now)
 }
@@ -323,7 +325,7 @@ function limitColor(kind: string): string {
 }
 
 /**
- * `Session 34% ↻ 2h 18m · Time 54%` beside the window's ring: the ring is the
+ * `Session 34% ↻ 2h18m · Time 54%` beside the window's ring: the ring is the
  * usage, its fainter run the time gone by; the Time figure only where there
  * is room. A figure from the engine's cache reads `~53%` in amber, its age at
  * the end.
@@ -437,7 +439,11 @@ function dropFrom(pieces: readonly TextPiece[], width: number): number {
 }
 
 /** Cells one column's line holds, less its ring at the left and the gap at its right. */
-export const columnWidth = (width: number, ringCells = RING_CELLS) => Math.floor(width / COLUMNS) - ringCells - SLOT_GAP
+export const columnWidth = (width: number, ringCells = RING_CELLS) =>
+  Math.floor((width * COLUMN_SHARE_PCT) / 100) - ringCells - SLOT_GAP
+
+/** The session's cost at API prices, as /cost totals it: `$1.23`. */
+export const formatCost = (usd: number) => `$${Math.max(0, usd).toFixed(2)}`
 
 /** The terminal's ring: a circle filled by quarters with the window's use. */
 export function ringGlyph(bar: BarModel): string {

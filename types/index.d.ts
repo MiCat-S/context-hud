@@ -29,6 +29,8 @@ declare module 'claude-code' {
       /** How the last usage endpoint call went, as /hud refresh reports it; null before one. */
       usageStatus: string | null
       lastRequest: HudRequest | null
+      /** The session's cost so far in USD at API prices, as the engine totals it; null before a reading. */
+      cost: number | null
     }
   }
 }

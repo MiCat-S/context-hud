@@ -1,6 +1,6 @@
 import type { ElementTable } from 'claude-code'
 
-import { COLUMNS, DESKTOP_RING_CELLS, RING_CELLS, SLOT_GAP, fitCells, ringGlyph } from './model'
+import { COLUMN_SHARE_PCT, DESKTOP_RING_CELLS, RING_CELLS, SLOT_GAP, fitCells, formatCost, ringGlyph } from './model'
 import type { BarModel, Cell } from './model'
 
 type Basic = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
@@ -14,7 +14,7 @@ const RING_STROKE = 4
 const RING_ROUND = 2 * Math.PI * RING_R
 /** When the band reports no width of its own. */
 const FALLBACK_COLUMNS = 120
-const COLUMN_SHARE = `${100 / COLUMNS}%`
+const COLUMN_SHARE = `${COLUMN_SHARE_PCT}%`
 
 /**
  * A column's line: its pieces side by side, none of them shrinking or
@@ -39,9 +39,27 @@ function line({ Box, Text }: Basic, cell: Cell) {
   )
 }
 
-/** The card's columns side by side, each its ring then its line of text, one row. */
-function columns(els: Basic, cells: Cell[], width: number, ringCells: number, drawRing: (cell: Cell) => JSX.Element) {
-  const { Box } = els
+/**
+ * The card's columns side by side, each its ring then its line of text, one
+ * row; the session's cost at the right end, where the columns leave room.
+ */
+function columns(
+  els: Basic,
+  cells: Cell[],
+  width: number,
+  ringCells: number,
+  costUsd: number | null,
+  drawRing: (cell: Cell) => JSX.Element,
+) {
+  const { Box, Text } = els
+  const cost =
+    costUsd === null
+      ? []
+      : [
+          <Box flexGrow={1} flexShrink={0} justifyContent="flex-end">
+            <Text bold>{formatCost(costUsd)}</Text>
+          </Box>,
+        ]
 
   return (
     <Box flexDirection="row">
@@ -58,6 +76,7 @@ function columns(els: Basic, cells: Cell[], width: number, ringCells: number, dr
           {line(els, cell)}
         </Box>
       ))}
+      {cost}
     </Box>
   )
 }
@@ -95,10 +114,10 @@ function ringSvg(bar: BarModel): string {
   )
 }
 
-export function desktopBand(els: WithSvg, cells: Cell[], bodyColumns: number) {
+export function desktopBand(els: WithSvg, cells: Cell[], bodyColumns: number, costUsd: number | null) {
   const { Box, Svg } = els
 
-  return columns(els, cells, widthOf(bodyColumns), DESKTOP_RING_CELLS, cell => (
+  return columns(els, cells, widthOf(bodyColumns), DESKTOP_RING_CELLS, costUsd, cell => (
     <Box marginRight={1} flexShrink={0}>
       <Svg source={ringSvg(cell.bar)} alt={`${Math.round(usedShare(cell.bar) * 100)}%`} width={RING_PX} height={RING_PX} />
     </Box>
@@ -107,10 +126,10 @@ export function desktopBand(els: WithSvg, cells: Cell[], bodyColumns: number) {
 
 // Terminal: each ring a circle glyph filled by quarters, in the window's color.
 
-export function terminalBand(els: Basic, cells: Cell[], bodyColumns: number) {
+export function terminalBand(els: Basic, cells: Cell[], bodyColumns: number, costUsd: number | null) {
   const { Box, Text } = els
 
-  return columns(els, cells, widthOf(bodyColumns), RING_CELLS, cell => (
+  return columns(els, cells, widthOf(bodyColumns), RING_CELLS, costUsd, cell => (
     <Box flexShrink={0}>
       <Text color={cell.bar.parts[0]?.color ?? 'inactive'}>{`${ringGlyph(cell.bar)} `}</Text>
     </Box>

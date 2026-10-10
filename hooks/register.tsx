@@ -27,10 +27,15 @@ const limits = atom({ plugin: 'context-hud', key: 'limits' } as const, null)
 const usageLimits = atom({ plugin: 'context-hud', key: 'usageLimits' } as const, null)
 const usageStatus = atom({ plugin: 'context-hud', key: 'usageStatus' } as const, null)
 const lastRequest = atom({ plugin: 'context-hud', key: 'lastRequest' } as const, null)
+const cost = atom({ plugin: 'context-hud', key: 'cost' } as const, null)
 
 async function refreshLimits($: EngineInterface) {
-  const next = toLimits((await $.session.usage()).rateLimits)
-  await update($, limits, () => next)
+  const usage = await $.session.usage()
+  await update($, limits, () => toLimits(usage.rateLimits))
+  if (usage.cost !== undefined) {
+    const usd = usage.cost.usd
+    await update($, cost, () => usd)
+  }
 }
 
 let usageAskedAt = -Infinity
@@ -167,6 +172,10 @@ export const register: Register = on => {
     const measured = await next(e)
     const windows = toLimits(e.rateLimits)
     await update($, limits, () => windows)
+    if (e.cost !== undefined) {
+      const usd = e.cost.usd
+      await update($, cost, () => usd)
+    }
     if (e.changed.includes('rateLimits')) {
       await refreshUsage($).catch(() => undefined)
     }
@@ -192,6 +201,7 @@ export const register: Register = on => {
       await update($, limits, () => null)
       await update($, usageLimits, () => null)
       await update($, lastRequest, () => null)
+      await update($, cost, () => null)
       $.clock.after(1_000, () => void refresh($, true))
     }
 
@@ -231,10 +241,11 @@ export const register: Register = on => {
       return next(e)
     }
     bandColumns = e.props.bodyColumns
+    const usd = await read($, cost)
     if (e.surface === 'terminal') {
-      return terminalBand($.ui.resolve(e), cells, e.props.bodyColumns)
+      return terminalBand($.ui.resolve(e), cells, e.props.bodyColumns, usd)
     }
 
-    return desktopBand($.ui.resolve(e), cells, e.props.bodyColumns)
+    return desktopBand($.ui.resolve(e), cells, e.props.bodyColumns, usd)
   })
 }

@@ -5,7 +5,7 @@
 A Claude Code mod for the Claude desktop app (and the terminal): one line above the prompt with your plan's usage windows and the prompt cache, each a ring beside a short line of text.
 
 ```
-◔ Session 22% ↻ 3h 39m    ◑ Weekly 69% ↻ 7h 39m    ◑ Fable 53% ↻ 7h 39m    ● Cache · 59m · Hit 97%
+◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   $6.04
 ```
 
 | Column  | What it shows                                                                 |
@@ -14,6 +14,7 @@ A Claude Code mod for the Claude desktop app (and the terminal): one line above 
 | Weekly  | The 7-day window across all models                                             |
 | Fable   | A model's own weekly window, titled as the usage card titles it                |
 | Cache   | The prompt cache: minutes left of its TTL, hit rate of the last response, warmth |
+| $       | The session's cost so far at API prices, as `/cost` totals it, at the right end |
 
 The ring is the window's use; a fainter run after it is the share of the window already gone by. Where the band is wide enough, each column adds `· Time 54%`, the cache its `· Warm` word and `· Warmth 98%`.
 
