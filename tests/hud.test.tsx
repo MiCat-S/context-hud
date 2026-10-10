@@ -157,9 +157,7 @@ describe('model', () => {
 
   test('warns when the 5-hour window fills before it resets', async () => {
     // Two hours in, 60% used: the last 40% goes in 1h 20m, before the reset in 3h.
-    expect(paceWarning({ kind: 'five_hour', percentUsed: 60, resetsAt: iso(NOW + 3 * HOUR) }, NOW)).toBe(
-      'full in 1h20m',
-    )
+    expect(paceWarning({ kind: 'five_hour', percentUsed: 60, resetsAt: iso(NOW + 3 * HOUR) }, NOW)).toBe('1h20m')
     expect(paceWarning({ kind: 'five_hour', percentUsed: 20, resetsAt: iso(NOW + 3 * HOUR) }, NOW)).toBeNull()
     expect(
       paceWarning({ kind: 'five_hour', percentUsed: 3, resetsAt: iso(NOW + 5 * HOUR - 2 * MINUTE) }, NOW),
@@ -188,7 +186,8 @@ describe('model', () => {
     expect(cache({ at: NOW - MINUTE, ttlMs: 5 * MINUTE, hitPct: 5 })).toBe('Cache · Warm · 4m · Hit 5% · Warmth 80%')
 
     const busy = buildCells([{ kind: 'five_hour', percentUsed: 92, resetsAt: iso(NOW + 30 * MINUTE) }], null, NOW)
-    expect(textOf(busy, 'five_hour')).toBe('Session 92% · 30m · Time 90% ▲ full in 23m')
+    expect(textOf(busy, 'five_hour')).toBe('Session 92% · 30m ▲ 23m · Time 90%')
+    expect(textOf(fitCells(busy, 30), 'five_hour')).toBe('Session 92% · 30m ▲ 23m')
     expect(byKey(busy, 'five_hour').pieces[1]).toEqual({ text: '92%', color: RED })
 
     // The terminal's ring fills by quarters with the use; anything used shows a quarter.

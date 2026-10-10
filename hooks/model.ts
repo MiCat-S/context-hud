@@ -265,7 +265,10 @@ export function limitTitle(limit: HudLimit): string {
   return limit.title ?? titleOfKind(limit.kind)
 }
 
-/** `full in 48m` when the 5-hour window fills at the pace so far before it resets. */
+/**
+ * `48m` when the 5-hour window fills at the pace so far before it resets, the
+ * time until it is full; `full` once it is. Drawn in red beside the reset.
+ */
 export function paceWarning(limit: HudLimit, now: number): string | null {
   if (limit.percentUsed >= 100) {
     return 'full'
@@ -281,7 +284,7 @@ export function paceWarning(limit: HudLimit, now: number): string | null {
   }
   const toFull = ((100 - limit.percentUsed) * elapsed) / limit.percentUsed
 
-  return toFull < left ? `full in ${formatDuration(toFull)}` : null
+  return toFull < left ? formatDuration(toFull) : null
 }
 
 export type BarModel = {
@@ -346,17 +349,18 @@ function limitCell(limit: HudLimit, now: number): Cell {
   if (!Number.isNaN(resetsAt)) {
     pieces.push(piece(`· ${formatReset(resetsAt, now)}`, { isDim: true }))
   }
-  if (time !== null) {
-    pieces.push(piece(`· Time ${Math.round(time * 100)}%`, { isDim: true, rank: 2 }))
-  }
-  if (isStale) {
-    pieces.push(piece(`· ${formatDuration(staleMs)} ago`, { color: AMBER, rank: 2 }))
-  }
+  // Beside the reset: `· 2h38m ▲ 2h10m`, the window full before it resets.
   if (limit.kind === 'five_hour') {
     const warning = paceWarning(limit, now)
     if (warning !== null) {
       pieces.push(piece(`▲ ${warning}`, { color: RED }))
     }
+  }
+  if (time !== null) {
+    pieces.push(piece(`· Time ${Math.round(time * 100)}%`, { isDim: true, rank: 2 }))
+  }
+  if (isStale) {
+    pieces.push(piece(`· ${formatDuration(staleMs)} ago`, { color: AMBER, rank: 2 }))
   }
 
   // Used, then the stretch of the window gone by beyond it, fainter; the mark is the time.

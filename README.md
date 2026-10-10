@@ -10,7 +10,7 @@ A Claude Code mod for the Claude desktop app (and the terminal): one line above 
 
 | Column  | What it shows                                                                 |
 | ------- | ----------------------------------------------------------------------------- |
-| Session | The 5-hour window: used %, countdown to its reset, `▲ full in …` when your pace fills it before the reset |
+| Session | The 5-hour window: used %, countdown to its reset, a red `▲ 2h10m` beside it when your pace fills the window before the reset: the time until it is full |
 | Weekly  | The 7-day window across all models                                             |
 | Fable   | A model's own weekly window, titled as the usage card titles it                |
 | Cache   | The prompt cache: minutes left of its TTL, hit rate of the last response, warmth |
