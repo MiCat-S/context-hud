@@ -140,11 +140,11 @@ describe('model', () => {
 
     // Older than ten minutes the figure reads `~9%` in amber, its age last, where there is room.
     const stale = buildCells(mergeLimits(toLimits(rateLimits), cached!.windows), null, NOW)
-    expect(textOf(stale, 'seven_day_fable')).toBe('Fable ~9% ↻ 5d · Time 29% · 23h ago')
+    expect(textOf(stale, 'seven_day_fable')).toBe('Fable ~9% · 5d · Time 29% · 23h ago')
     expect(byKey(stale, 'seven_day_fable').pieces[1]).toEqual({ text: '~9%', color: AMBER })
-    expect(textOf(fitCells(stale, 80), 'seven_day_fable')).toBe('Fable ~9% ↻ 5d')
+    expect(textOf(fitCells(stale, 80), 'seven_day_fable')).toBe('Fable ~9% · 5d')
     const fresh = buildCells(parseUsageLimits(usageBody, NOW - MINUTE), null, NOW)
-    expect(textOf(fresh, 'seven_day_fable')).toBe('Fable 9% ↻ 5d · Time 29%')
+    expect(textOf(fresh, 'seven_day_fable')).toBe('Fable 9% · 5d · Time 29%')
   })
 
   test('reads the last main-thread request from the transcript', async () => {
@@ -177,9 +177,9 @@ describe('model', () => {
   test('each column reads short, on one line, the ring beside it', async () => {
     const list = cells()
     expect(list.map(cell => cell.key)).toEqual(['five_hour', 'seven_day', 'seven_day_fable', 'cache'])
-    expect(textOf(list, 'five_hour')).toBe('Session 34% ↻ 2h18m · Time 54%')
-    expect(textOf(list, 'seven_day')).toBe('Weekly 23% ↻ 5d · Time 29%')
-    expect(textOf(list, 'seven_day_fable')).toBe('Fable 9% ↻ 5d · Time 29%')
+    expect(textOf(list, 'five_hour')).toBe('Session 34% · 2h18m · Time 54%')
+    expect(textOf(list, 'seven_day')).toBe('Weekly 23% · 5d · Time 29%')
+    expect(textOf(list, 'seven_day_fable')).toBe('Fable 9% · 5d · Time 29%')
     expect(textOf(list, 'cache')).toBe('Cache · Warm · 58m · Hit 92% · Warmth 98%')
 
     const cache = (request: Parameters<typeof cells>[0]) => textOf(cells(request), 'cache')
@@ -188,7 +188,7 @@ describe('model', () => {
     expect(cache({ at: NOW - MINUTE, ttlMs: 5 * MINUTE, hitPct: 5 })).toBe('Cache · Warm · 4m · Hit 5% · Warmth 80%')
 
     const busy = buildCells([{ kind: 'five_hour', percentUsed: 92, resetsAt: iso(NOW + 30 * MINUTE) }], null, NOW)
-    expect(textOf(busy, 'five_hour')).toBe('Session 92% ↻ 30m · Time 90% ▲ full in 23m')
+    expect(textOf(busy, 'five_hour')).toBe('Session 92% · 30m · Time 90% ▲ full in 23m')
     expect(byKey(busy, 'five_hour').pieces[1]).toEqual({ text: '92%', color: RED })
 
     // The terminal's ring fills by quarters with the use; anything used shows a quarter.
@@ -230,27 +230,27 @@ describe('model', () => {
   test('short of room every column drops its Time and Warmth figures, then the cache its word', async () => {
     const priced = () => cells(undefined, 1.23)
     const wide = fitCells(priced(), 260)
-    expect(textOf(wide, 'five_hour')).toBe('Session 34% ↻ 2h18m · Time 54%')
+    expect(textOf(wide, 'five_hour')).toBe('Session 34% · 2h18m · Time 54%')
     expect(textOf(wide, 'cache')).toBe('Cache · Warm · 58m · Hit 92% · Warmth 98%')
     expect(textOf(wide, 'cost')).toBe('Cost $1.23')
 
     // 120 columns on the terminal: 107 cells for the lines after the rings and gaps; whole they take 131.
     const narrow = fitCells(priced(), 120)
-    expect(textOf(narrow, 'five_hour')).toBe('Session 34% ↻ 2h18m')
-    expect(textOf(narrow, 'seven_day')).toBe('Weekly 23% ↻ 5d')
-    expect(textOf(narrow, 'seven_day_fable')).toBe('Fable 9% ↻ 5d')
+    expect(textOf(narrow, 'five_hour')).toBe('Session 34% · 2h18m')
+    expect(textOf(narrow, 'seven_day')).toBe('Weekly 23% · 5d')
+    expect(textOf(narrow, 'seven_day_fable')).toBe('Fable 9% · 5d')
     expect(textOf(narrow, 'cache')).toBe('Cache · Warm · 58m · Hit 92%')
     expect(textOf(narrow, 'cost')).toBe('Cost $1.23')
 
     // 90 columns: 77 cells; the lines take 85, so the cache's word goes too. The cost stays whole.
     const tight = fitCells(priced(), 90)
-    expect(textOf(tight, 'five_hour')).toBe('Session 34% ↻ 2h18m')
+    expect(textOf(tight, 'five_hour')).toBe('Session 34% · 2h18m')
     expect(textOf(tight, 'cache')).toBe('Cache · 58m · Hit 92%')
     expect(textOf(tight, 'cost')).toBe('Cost $1.23')
 
     // The desktop's ring takes more of the band's cells: 112 columns there leave 83.
     const desktop = fitCells(priced(), 112, 6)
-    expect(textOf(desktop, 'five_hour')).toBe('Session 34% ↻ 2h18m')
+    expect(textOf(desktop, 'five_hour')).toBe('Session 34% · 2h18m')
     expect(textOf(desktop, 'cache')).toBe('Cache · 58m · Hit 92%')
     expect(textOf(desktop, 'cost')).toBe('Cost $1.23')
   })
@@ -319,8 +319,8 @@ test('the band draws four columns, a ring then a line of text in each, one row',
     // nor wraps. The cost closes the row.
     const texts = await ui.findAll({ type: 'Text' })
     const joined = texts.map(one => one.text).join('')
-    expect(joined).toContain('Session 34% ↻ 2h18m')
-    expect(joined).toContain('Fable 9% ↻ 5d')
+    expect(joined).toContain('Session 34% · 2h18m')
+    expect(joined).toContain('Fable 9% · 5d')
     expect(joined).toContain('Cache · Warm · 58m · Hit 92%Cost $1.23')
     expect(joined).not.toContain('Time')
     expect(texts.slice(-2).map(one => one.text)).toEqual(['Cost', ' $1.23'])
@@ -402,7 +402,7 @@ test("refused the live call, the band shows the engine's cache and says how old 
   expect(columns.map(box => box.props.flexShrink)).toEqual([0, 0, 0, 1, 0])
   // The cached figure reads `~9%`; at this width its age has gone with the Time figure.
   const joined = (await ui.findAll({ type: 'Text' })).map(one => one.text).join('')
-  expect(joined).toContain('Fable ~9% ↻ 5d')
+  expect(joined).toContain('Fable ~9% · 5d')
   await ui.unmount()
 })
 
@@ -418,6 +418,6 @@ test('without a first-party credential the band keeps to the headers', async ($,
   expect(boxes.length).toBe(3)
   const joined = (await ui.findAll({ type: 'Text' })).map(one => one.text).join('')
   // Three columns leave room for the Time figures; the cost still closes the row.
-  expect(joined).toContain('Weekly 23% ↻ 5d · Time 29%Cost $1.23')
+  expect(joined).toContain('Weekly 23% · 5d · Time 29%Cost $1.23')
   await ui.unmount()
 })

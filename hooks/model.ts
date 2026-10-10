@@ -321,7 +321,7 @@ function limitColor(kind: string): string {
 }
 
 /**
- * `Session 34% ↻ 2h18m · Time 54%` beside the window's ring: the ring is the
+ * `Session 34% · 2h18m · Time 54%` beside the window's ring: the ring is the
  * usage, its fainter run the time gone by; the Time figure only where there
  * is room. A figure from the engine's cache reads `~53%` in amber, its age at
  * the end.
@@ -344,7 +344,7 @@ function limitCell(limit: HudLimit, now: number): Cell {
     ),
   ]
   if (!Number.isNaN(resetsAt)) {
-    pieces.push(piece(`↻ ${formatReset(resetsAt, now)}`, { isDim: true }))
+    pieces.push(piece(`· ${formatReset(resetsAt, now)}`, { isDim: true }))
   }
   if (time !== null) {
     pieces.push(piece(`· Time ${Math.round(time * 100)}%`, { isDim: true, rank: 2 }))

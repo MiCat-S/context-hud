@@ -5,7 +5,7 @@
 A Claude Code mod for the Claude desktop app (and the terminal): one line above the prompt with your plan's usage windows and the prompt cache, each a ring beside a short line of text.
 
 ```
-◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   Cost $6.04
+◔ Session 22% · 3h39m   ◑ Weekly 69% · 7h39m   ◑ Fable 53% · 7h39m   ● Cache · 59m · Hit 97%   Cost $6.04
 ```
 
 | Column  | What it shows                                                                 |
