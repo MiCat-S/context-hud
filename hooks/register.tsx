@@ -236,16 +236,15 @@ export const register: Register = on => {
       return next(e)
     }
     const windows = mergeLimits(await read($, limits), await read($, usageLimits))
-    const cells = buildCells(windows, await read($, lastRequest), await $.clock.now())
+    const cells = buildCells(windows, await read($, lastRequest), await $.clock.now(), await read($, cost))
     if (cells.length === 0) {
       return next(e)
     }
     bandColumns = e.props.bodyColumns
-    const usd = await read($, cost)
     if (e.surface === 'terminal') {
-      return terminalBand($.ui.resolve(e), cells, e.props.bodyColumns, usd)
+      return terminalBand($.ui.resolve(e), cells, e.props.bodyColumns)
     }
 
-    return desktopBand($.ui.resolve(e), cells, e.props.bodyColumns, usd)
+    return desktopBand($.ui.resolve(e), cells, e.props.bodyColumns)
   })
 }

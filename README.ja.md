@@ -5,7 +5,7 @@
 Claude デスクトップアプリ（ターミナルでも可）向けの Claude Code mod。プロンプトの上に 1 行で、プランの利用枠とプロンプトキャッシュを表示します。各列はリングと短いテキストです。
 
 ```
-◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   $6.04
+◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   Cost $6.04
 ```
 
 | 列      | 内容                                                                                       |

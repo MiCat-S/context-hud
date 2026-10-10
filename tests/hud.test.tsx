@@ -94,7 +94,8 @@ const transcript = [
   '',
 ]
 
-const cells = (request = parseLastRequest(transcript, HOUR)) => buildCells(limits(), request, NOW)
+const cells = (request = parseLastRequest(transcript, HOUR), costUsd: number | null = null) =>
+  buildCells(limits(), request, NOW, costUsd)
 const byKey = (list: Cell[], key: string) => list.find(cell => cell.key === key)!
 const textOf = (list: Cell[], key: string) => lineText(byKey(list, key).pieces)
 
@@ -141,7 +142,7 @@ describe('model', () => {
     const stale = buildCells(mergeLimits(toLimits(rateLimits), cached!.windows), null, NOW)
     expect(textOf(stale, 'seven_day_fable')).toBe('Fable ~9% ↻ 5d · Time 29% · 23h ago')
     expect(byKey(stale, 'seven_day_fable').pieces[1]).toEqual({ text: '~9%', color: AMBER })
-    expect(textOf(fitCells(stale, 100), 'seven_day_fable')).toBe('Fable ~9% ↻ 5d')
+    expect(textOf(fitCells(stale, 80), 'seven_day_fable')).toBe('Fable ~9% ↻ 5d')
     const fresh = buildCells(parseUsageLimits(usageBody, NOW - MINUTE), null, NOW)
     expect(textOf(fresh, 'seven_day_fable')).toBe('Fable 9% ↻ 5d · Time 29%')
   })
@@ -191,9 +192,16 @@ describe('model', () => {
     expect(byKey(busy, 'five_hour').pieces[1]).toEqual({ text: '92%', color: RED })
 
     // The terminal's ring fills by quarters with the use; anything used shows a quarter.
-    expect(list.map(cell => ringGlyph(cell.bar))).toEqual(['◔', '◔', '◔', '●'])
+    expect(list.map(cell => ringGlyph(cell.bar!))).toEqual(['◔', '◔', '◔', '●'])
     expect(ringGlyph({ parts: [], mark: null })).toBe('○')
-    expect(ringGlyph(byKey(busy, 'five_hour').bar)).toBe('●')
+    expect(ringGlyph(byKey(busy, 'five_hour').bar!)).toBe('●')
+
+    // The cost closes the row, with no ring, and only beside the others.
+    const priced = cells(undefined, 1.23)
+    expect(priced.map(cell => cell.key)).toEqual(['five_hour', 'seven_day', 'seven_day_fable', 'cache', 'cost'])
+    expect(textOf(priced, 'cost')).toBe('Cost $1.23')
+    expect(byKey(priced, 'cost').bar).toBeUndefined()
+    expect(buildCells(null, null, NOW, 1.23)).toEqual([])
 
     // No model window: the cache takes the next column. Nothing at all: no columns.
     expect(buildCells(toLimits(rateLimits), null, NOW).map(cell => cell.key)).toEqual(['five_hour', 'seven_day'])
@@ -203,47 +211,48 @@ describe('model', () => {
   test('each bar in the card colors', async () => {
     const list = cells()
     // Used in the window's own hue, the time gone by beyond it fainter, the mark at the time.
-    const session = byKey(list, 'five_hour').bar
+    const session = byKey(list, 'five_hour').bar!
     expect(session.parts.map(part => [part.color, part.isShade === true])).toEqual([
       [LIMIT_COLOR.five_hour, false],
       [LIMIT_COLOR.five_hour, true],
     ])
     expect(Math.round(session.parts[0]!.share * 100)).toBe(34)
     expect(Math.round(session.mark! * 100)).toBe(54)
-    expect(byKey(list, 'seven_day').bar.parts[0]?.color).toBe(LIMIT_COLOR.seven_day)
-    expect(byKey(list, 'seven_day_fable').bar.parts[0]?.color).toBe(LIMIT_COLOR.model)
+    expect(byKey(list, 'seven_day').bar?.parts[0]?.color).toBe(LIMIT_COLOR.seven_day)
+    expect(byKey(list, 'seven_day_fable').bar?.parts[0]?.color).toBe(LIMIT_COLOR.model)
 
-    const cache = byKey(list, 'cache').bar
+    const cache = byKey(list, 'cache').bar!
     expect(cache.gradient).toEqual({ from: CACHE_COLOR.cold, to: CACHE_COLOR.warm })
     expect(Math.round(cache.parts[0]!.share * 100)).toBe(98)
     expect(cache.mark).toBeNull()
   })
 
-  test('short of room the Time figure goes, the windows together; the cache its Warmth, then its word', async () => {
-    const wide = fitCells(cells(), 260)
+  test('short of room every column drops its Time and Warmth figures, then the cache its word', async () => {
+    const priced = () => cells(undefined, 1.23)
+    const wide = fitCells(priced(), 260)
     expect(textOf(wide, 'five_hour')).toBe('Session 34% ↻ 2h18m · Time 54%')
     expect(textOf(wide, 'cache')).toBe('Cache · Warm · 58m · Hit 92% · Warmth 98%')
+    expect(textOf(wide, 'cost')).toBe('Cost $1.23')
 
-    // 120 columns on the terminal: 24 cells a line after the ring and the gap.
-    const narrow = fitCells(cells(), 120)
+    // 120 columns on the terminal: 107 cells for the lines after the rings and gaps; whole they take 131.
+    const narrow = fitCells(priced(), 120)
     expect(textOf(narrow, 'five_hour')).toBe('Session 34% ↻ 2h18m')
     expect(textOf(narrow, 'seven_day')).toBe('Weekly 23% ↻ 5d')
     expect(textOf(narrow, 'seven_day_fable')).toBe('Fable 9% ↻ 5d')
-    // The cache's line with its word is 28: over, so the word goes; it fits from 136 columns.
-    expect(textOf(narrow, 'cache')).toBe('Cache · 58m · Hit 92%')
-    expect(textOf(fitCells(cells(), 136), 'cache')).toBe('Cache · Warm · 58m · Hit 92%')
+    expect(textOf(narrow, 'cache')).toBe('Cache · Warm · 58m · Hit 92%')
+    expect(textOf(narrow, 'cost')).toBe('Cost $1.23')
 
-    // 100 columns: 20 cells a line.
-    const tight = fitCells(cells(), 100)
+    // 90 columns: 77 cells; the lines take 85, so the cache's word goes too. The cost stays whole.
+    const tight = fitCells(priced(), 90)
     expect(textOf(tight, 'five_hour')).toBe('Session 34% ↻ 2h18m')
-    expect(textOf(tight, 'seven_day')).toBe('Weekly 23% ↻ 5d')
-    expect(textOf(tight, 'seven_day_fable')).toBe('Fable 9% ↻ 5d')
     expect(textOf(tight, 'cache')).toBe('Cache · 58m · Hit 92%')
+    expect(textOf(tight, 'cost')).toBe('Cost $1.23')
 
-    // The desktop's ring takes more of the band's cells: 112 columns there is 18 a line.
-    const desktop = fitCells(cells(), 112, 6)
+    // The desktop's ring takes more of the band's cells: 112 columns there leave 83.
+    const desktop = fitCells(priced(), 112, 6)
     expect(textOf(desktop, 'five_hour')).toBe('Session 34% ↻ 2h18m')
     expect(textOf(desktop, 'cache')).toBe('Cache · 58m · Hit 92%')
+    expect(textOf(desktop, 'cost')).toBe('Cost $1.23')
   })
 })
 
@@ -292,27 +301,29 @@ test('the band draws four columns, a ring then a line of text in each, one row',
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'context-hud', surface, ...BAND })
     const boxes = await ui.findAll({ type: 'Box' })
-    expect(boxes[0]?.props.flexDirection).toBe('row')
-    // Each column one row: its ring, then its line, centered on each other.
-    const columns = boxes.filter(box => box.props.width !== undefined)
-    expect(columns.map(box => [box.props.width, box.props.flexDirection, box.props.alignItems])).toEqual(
-      Array(4).fill(['23%', 'row', 'center']),
-    )
+    expect([boxes[0]?.props.flexDirection, boxes[0]?.props.justifyContent]).toEqual(['row', 'space-between'])
+    // Five columns spread across the row, each a row of its own: ring, then line,
+    // centered on each other; only the cache's gives way when the row is short.
+    const columns = boxes.filter(box => box.props.alignItems === 'center')
+    expect(columns.map(box => [box.props.flexDirection, box.props.flexShrink, box.props.overflow])).toEqual([
+      ['row', 0, 'hidden'],
+      ['row', 0, 'hidden'],
+      ['row', 0, 'hidden'],
+      ['row', 1, 'hidden'],
+      ['row', 0, 'hidden'],
+    ])
     expect(await ui.find({ type: 'Button' })).toBeUndefined()
-    // 140 columns: 29 cells a line on the terminal, 25 on the desktop, whose
-    // ring takes more: the Time figures go on both, the cache's word on the
-    // desktop. A line is its pieces side by side, each a Text of its own that
-    // neither shrinks nor wraps. The cost closes the row.
+    // 140 columns: the lines take 131 whole, over the 127 the terminal leaves and
+    // the 111 the desktop does, so every Time and Warmth figure goes on both. A
+    // line is its pieces side by side, each a Text of its own that neither shrinks
+    // nor wraps. The cost closes the row.
     const texts = await ui.findAll({ type: 'Text' })
     const joined = texts.map(one => one.text).join('')
     expect(joined).toContain('Session 34% ↻ 2h18m')
     expect(joined).toContain('Fable 9% ↻ 5d')
-    expect(joined).toContain(surface === 'terminal' ? 'Cache · Warm · 58m · Hit 92%$1.23' : 'Cache · 58m · Hit 92%$1.23')
+    expect(joined).toContain('Cache · Warm · 58m · Hit 92%Cost $1.23')
     expect(joined).not.toContain('Time')
-    expect(texts.at(-1)?.text).toBe('$1.23')
-    const lines = boxes.filter(box => box.props.flexWrap === 'nowrap' && box.props.width === undefined)
-    expect(lines.length).toBe(4)
-    expect(lines.every(box => box.props.overflow === 'hidden')).toBe(true)
+    expect(texts.slice(-2).map(one => one.text)).toEqual(['Cost', ' $1.23'])
     if (surface === 'desktop') {
       // Each ring a thick donut a text line tall, filled by the use; no notch.
       const svgs = await ui.findAll({ type: 'Svg' })
@@ -387,8 +398,8 @@ test("refused the live call, the band shows the engine's cache and says how old 
     /^Context HUD refreshed\. Usage API: .*credential is withheld.*; showing the engine's cache of 23h ago\.$/,
   )
   const ui = await $.ui.mount({ plugin: 'context-hud', surface: 'desktop', ...BAND })
-  const columns = (await ui.findAll({ type: 'Box' })).filter(box => box.props.width !== undefined)
-  expect(columns.length).toBe(4)
+  const columns = (await ui.findAll({ type: 'Box' })).filter(box => box.props.alignItems === 'center')
+  expect(columns.map(box => box.props.flexShrink)).toEqual([0, 0, 0, 1, 0])
   // The cached figure reads `~9%`; at this width its age has gone with the Time figure.
   const joined = (await ui.findAll({ type: 'Text' })).map(one => one.text).join('')
   expect(joined).toContain('Fable ~9% ↻ 5d')
@@ -403,7 +414,10 @@ test('without a first-party credential the band keeps to the headers', async ($,
   const refreshed = await $.command.run({ command: 'hud', args: 'refresh', ...TYPED })
   expect(refreshed.text).toBe('Context HUD refreshed. Usage API: no first-party credential.')
   const ui = await $.ui.mount({ plugin: 'context-hud', surface: 'terminal', ...BAND })
-  const boxes = (await ui.findAll({ type: 'Box' })).filter(box => box.props.width !== undefined)
-  expect(boxes.length).toBe(2)
+  const boxes = (await ui.findAll({ type: 'Box' })).filter(box => box.props.alignItems === 'center')
+  expect(boxes.length).toBe(3)
+  const joined = (await ui.findAll({ type: 'Text' })).map(one => one.text).join('')
+  // Three columns leave room for the Time figures; the cost still closes the row.
+  expect(joined).toContain('Weekly 23% ↻ 5d · Time 29%Cost $1.23')
   await ui.unmount()
 })

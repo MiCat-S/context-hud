@@ -5,7 +5,7 @@
 給 Claude 桌面版（終端機也可用）的 Claude Code mod：在輸入框上方用一行顯示方案的用量視窗與提示快取，每欄一個圓環加一行短文字。
 
 ```
-◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   $6.04
+◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   Cost $6.04
 ```
 
 | 欄位    | 內容                                                                                   |

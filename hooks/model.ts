@@ -12,10 +12,6 @@ const PACE_MIN_ELAPSED = 5 * MINUTE
 /** A reading from the engine's cache older than this says how old it is. */
 const STALE_AFTER = 10 * MINUTE
 
-/** The card's four ring columns: the session, the week, a model's week, the cache. */
-export const COLUMNS = 4
-/** Each ring column's share of the band; what is left at the right holds the cost. */
-export const COLUMN_SHARE_PCT = 23
 /** Cells kept clear at the right of each column, between it and the next. */
 export const SLOT_GAP = 1
 /** Cells the terminal's ring takes at the left of a column's line, its space included. */
@@ -309,8 +305,8 @@ export type TextPiece = {
   rank?: number
 }
 
-/** One column of the card: its ring, then its line of text beside it. */
-export type Cell = { key: string; pieces: TextPiece[]; bar: BarModel }
+/** One column of the card: its line of text, beside its ring where it has one (the cost has none). */
+export type Cell = { key: string; pieces: TextPiece[]; bar?: BarModel }
 
 const piece = (text: string, style: Omit<TextPiece, 'text'> = {}): TextPiece => ({ text, ...style })
 
@@ -351,10 +347,10 @@ function limitCell(limit: HudLimit, now: number): Cell {
     pieces.push(piece(`↻ ${formatReset(resetsAt, now)}`, { isDim: true }))
   }
   if (time !== null) {
-    pieces.push(piece(`· Time ${Math.round(time * 100)}%`, { isDim: true, rank: 1 }))
+    pieces.push(piece(`· Time ${Math.round(time * 100)}%`, { isDim: true, rank: 2 }))
   }
   if (isStale) {
-    pieces.push(piece(`· ${formatDuration(staleMs)} ago`, { color: AMBER, rank: 1 }))
+    pieces.push(piece(`· ${formatDuration(staleMs)} ago`, { color: AMBER, rank: 2 }))
   }
   if (limit.kind === 'five_hour') {
     const warning = paceWarning(limit, now)
@@ -401,8 +397,21 @@ function cacheCell(request: HudRequest, now: number): Cell {
   }
 }
 
-/** The columns in the card's order: the session, the week, a model's week, the cache. */
-export function buildCells(limits: readonly HudLimit[] | null, request: HudRequest | null, now: number): Cell[] {
+/** `Cost $1.23`: the session so far at API prices, as /cost totals it. */
+function costCell(usd: number): Cell {
+  return { key: 'cost', pieces: [piece('Cost', { isBold: true }), piece(formatCost(usd))] }
+}
+
+/**
+ * The columns in the card's order: the session, the week, a model's week,
+ * the cache, then the cost, which stands only beside the others.
+ */
+export function buildCells(
+  limits: readonly HudLimit[] | null,
+  request: HudRequest | null,
+  now: number,
+  costUsd: number | null = null,
+): Cell[] {
   const windows = limits ?? []
   const pick = (match: (kind: string) => boolean) => windows.find(limit => match(limit.kind))
   const cells = [
@@ -412,6 +421,9 @@ export function buildCells(limits: readonly HudLimit[] | null, request: HudReque
   ].flatMap(limit => (limit === undefined ? [] : [limitCell(limit, now)]))
   if (request !== null) {
     cells.push(cacheCell(request, now))
+  }
+  if (costUsd !== null && cells.length > 0) {
+    cells.push(costCell(costUsd))
   }
 
   return cells
@@ -423,24 +435,6 @@ export function lineWidth(pieces: readonly TextPiece[]): number {
 }
 
 const keepBelow = (pieces: readonly TextPiece[], rank: number) => pieces.filter(one => (one.rank ?? 0) < rank)
-
-/** The lowest rank to drop from so the line fits `width`; Infinity when it fits whole. */
-function dropFrom(pieces: readonly TextPiece[], width: number): number {
-  const ranks = [...new Set(pieces.map(one => one.rank ?? 0))].filter(rank => rank > 0).sort((a, b) => b - a)
-  let from = Infinity
-  for (const rank of ranks) {
-    if (lineWidth(keepBelow(pieces, from)) <= width) {
-      return from
-    }
-    from = rank
-  }
-
-  return from
-}
-
-/** Cells one column's line holds, less its ring at the left and the gap at its right. */
-export const columnWidth = (width: number, ringCells = RING_CELLS) =>
-  Math.floor((width * COLUMN_SHARE_PCT) / 100) - ringCells - SLOT_GAP
 
 /** The session's cost at API prices, as /cost totals it: `$1.23`. */
 export const formatCost = (usd: number) => `$${Math.max(0, usd).toFixed(2)}`
@@ -457,18 +451,26 @@ export function ringGlyph(bar: BarModel): string {
 }
 
 /**
- * Each column's line fitted to its width; the windows drop the same pieces
- * together, so they read alike. What still runs over ends in `…`.
+ * The columns fitted to the band as a whole: each takes its own width, with
+ * its ring and a gap, and when together they run over, every column drops
+ * its highest-ranked pieces at once, then the next rank, so they read alike.
+ * What still runs over is cut at the band's edge.
  */
 export function fitCells(cells: readonly Cell[], width: number, ringCells = RING_CELLS): Cell[] {
-  const room = columnWidth(width, ringCells)
-  const windows = cells.filter(cell => cell.key !== 'cache')
-  const from = Math.min(Infinity, ...windows.map(cell => dropFrom(cell.pieces, room)))
+  const budget = width - cells.reduce((sum, cell) => sum + SLOT_GAP + (cell.bar === undefined ? 0 : ringCells), 0)
+  const total = (from: number) => cells.reduce((sum, cell) => sum + lineWidth(keepBelow(cell.pieces, from)), 0)
+  const ranks = [...new Set(cells.flatMap(cell => cell.pieces.map(one => one.rank ?? 0)))]
+    .filter(rank => rank > 0)
+    .sort((a, b) => b - a)
+  let from = Infinity
+  for (const rank of ranks) {
+    if (total(from) <= budget) {
+      break
+    }
+    from = rank
+  }
 
-  return cells.map(cell => ({
-    ...cell,
-    pieces: keepBelow(cell.pieces, cell.key === 'cache' ? dropFrom(cell.pieces, room) : from),
-  }))
+  return cells.map(cell => ({ ...cell, pieces: keepBelow(cell.pieces, from) }))
 }
 
 export function lineText(pieces: readonly TextPiece[]): string {

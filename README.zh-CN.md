@@ -5,7 +5,7 @@
 给 Claude 桌面版（终端也可用）的 Claude Code mod：在输入框上方用一行显示套餐的用量窗口与提示缓存，每栏一个圆环加一行短文字。
 
 ```
-◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   $6.04
+◔ Session 22% ↻ 3h39m   ◑ Weekly 69% ↻ 7h39m   ◑ Fable 53% ↻ 7h39m   ● Cache · 59m · Hit 97%   Cost $6.04
 ```
 
 | 栏位    | 内容                                                                                   |
