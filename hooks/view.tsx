@@ -42,21 +42,19 @@ function pieceBox({ Box, Text }: Basic, pieces: readonly TextPiece[], i: number)
 /**
  * A column's line: its pieces side by side, none of them shrinking or
  * wrapping, so a line too long for its column is cut at the edge, never
- * continued under it. `drawNotes` takes a run of notes to draw as one
- * element instead; absent, they are written inline like the rest.
+ * continued under it. `drawNotes` takes a run of two or more notes (the
+ * countdown with a warning under it) to draw as one element instead; a
+ * note alone, or without it, is written inline like the rest.
  */
 function line(els: Basic, cell: Cell, drawNotes?: (notes: TextPiece[]) => JSX.Element) {
   const { Box } = els
   const parts: JSX.Element[] = []
   for (let i = 0; i < cell.pieces.length; i++) {
-    if (drawNotes !== undefined && cell.pieces[i]!.isNote === true) {
-      const notes: TextPiece[] = []
-      while (i < cell.pieces.length && cell.pieces[i]!.isNote === true) {
-        notes.push(cell.pieces[i]!)
-        i++
-      }
-      i--
+    const run = cell.pieces.slice(i).findIndex(one => one.isNote !== true)
+    const notes = cell.pieces.slice(i, run === -1 ? undefined : i + run)
+    if (drawNotes !== undefined && notes.length >= 2) {
       parts.push(drawNotes(notes))
+      i += notes.length - 1
     } else {
       parts.push(pieceBox(els, cell.pieces, i))
     }
@@ -141,7 +139,7 @@ const escapeXml = (text: string) =>
 
 /**
  * A run of notes stacked in small print, a ring's height: the countdown over
- * the warning, `2h35m` over `▲ full`; one line alone sits mid-height.
+ * the warning, `2h35m` over `▲ full`.
  */
 function notesSvg(notes: readonly TextPiece[]): { source: string; width: number } {
   const width = Math.ceil(Math.max(...notes.map(one => [...one.text].length)) * NOTE_CHAR_W) + 2
