@@ -306,6 +306,12 @@ export type TextPiece = {
   isBold?: boolean
   isDim?: boolean
   rank?: number
+  /**
+   * A note beside the figure: the reset countdown, the pace warning. The
+   * desktop stacks a run of notes in small print; the terminal writes them
+   * inline, `· ` before the first.
+   */
+  isNote?: boolean
 }
 
 /** One column of the card: its line of text, beside its ring where it has one (the cost has none). */
@@ -347,13 +353,13 @@ function limitCell(limit: HudLimit, now: number): Cell {
     ),
   ]
   if (!Number.isNaN(resetsAt)) {
-    pieces.push(piece(`· ${formatReset(resetsAt, now)}`, { isDim: true }))
+    pieces.push(piece(formatReset(resetsAt, now), { isDim: true, isNote: true }))
   }
-  // Beside the reset: `· 2h38m ▲ 2h10m`, the window full before it resets.
+  // Under the reset: `2h38m` over `▲ 2h10m`, the window full before it resets.
   if (limit.kind === 'five_hour') {
     const warning = paceWarning(limit, now)
     if (warning !== null) {
-      pieces.push(piece(`▲ ${warning}`, { color: RED }))
+      pieces.push(piece(`▲ ${warning}`, { color: RED, isNote: true }))
     }
   }
   if (time !== null) {
@@ -433,9 +439,13 @@ export function buildCells(
   return cells
 }
 
+/** A piece as the terminal writes it: `· ` before the first note of a run. */
+export const pieceText = (pieces: readonly TextPiece[], i: number): string =>
+  pieces[i]!.isNote === true && pieces[i - 1]?.isNote !== true ? `· ${pieces[i]!.text}` : pieces[i]!.text
+
 /** How many character cells a column's line takes, a space between pieces. */
 export function lineWidth(pieces: readonly TextPiece[]): number {
-  return pieces.reduce((sum, one) => sum + [...one.text].length, 0) + Math.max(0, pieces.length - 1)
+  return pieces.reduce((sum, _one, i) => sum + [...pieceText(pieces, i)].length, 0) + Math.max(0, pieces.length - 1)
 }
 
 const keepBelow = (pieces: readonly TextPiece[], rank: number) => pieces.filter(one => (one.rank ?? 0) < rank)
@@ -478,5 +488,5 @@ export function fitCells(cells: readonly Cell[], width: number, ringCells = RING
 }
 
 export function lineText(pieces: readonly TextPiece[]): string {
-  return pieces.map(one => one.text).join(' ')
+  return pieces.map((_one, i) => pieceText(pieces, i)).join(' ')
 }

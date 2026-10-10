@@ -1,7 +1,7 @@
 import type { ElementTable } from 'claude-code'
 
-import { DESKTOP_RING_CELLS, RING_CELLS, SLOT_GAP, fitCells, ringGlyph } from './model'
-import type { BarModel, Cell } from './model'
+import { DESKTOP_RING_CELLS, RED, RING_CELLS, SLOT_GAP, fitCells, pieceText, ringGlyph } from './model'
+import type { BarModel, Cell, TextPiece } from './model'
 
 type Basic = Pick<ElementTable<'terminal'>, 'Box' | 'Text'>
 type WithSvg = Pick<ElementTable<'desktop'>, 'Box' | 'Text' | 'Svg'>
@@ -14,26 +14,57 @@ const RING_STROKE = 3
 const RING_ROUND = 2 * Math.PI * RING_R
 /** When the band reports no width of its own. */
 const FALLBACK_COLUMNS = 120
+/** The desktop's note: up to two lines of small print, a ring's height. */
+const NOTE_H = 18
+const NOTE_FONT = 7.5
+const NOTE_LINE = 9
+/** About what one character of the note's face takes, in CSS pixels. */
+const NOTE_CHAR_W = 4.6
+const NOTE_DIM = '#8f8f8f'
+
+/** One piece as a Text of its own, a space before it unless it leads. */
+function pieceBox({ Box, Text }: Basic, pieces: readonly TextPiece[], i: number) {
+  const one = pieces[i]!
+
+  return (
+    <Box flexShrink={0}>
+      <Text
+        {...(one.isBold === true ? { bold: true } : {})}
+        {...(one.isDim === true ? { dimColor: true } : {})}
+        {...(one.color === undefined ? {} : { color: one.color })}
+      >
+        {i === 0 ? pieceText(pieces, i) : ` ${pieceText(pieces, i)}`}
+      </Text>
+    </Box>
+  )
+}
 
 /**
  * A column's line: its pieces side by side, none of them shrinking or
  * wrapping, so a line too long for its column is cut at the edge, never
- * continued under it.
+ * continued under it. `drawNotes` takes a run of notes to draw as one
+ * element instead; absent, they are written inline like the rest.
  */
-function line({ Box, Text }: Basic, cell: Cell) {
+function line(els: Basic, cell: Cell, drawNotes?: (notes: TextPiece[]) => JSX.Element) {
+  const { Box } = els
+  const parts: JSX.Element[] = []
+  for (let i = 0; i < cell.pieces.length; i++) {
+    if (drawNotes !== undefined && cell.pieces[i]!.isNote === true) {
+      const notes: TextPiece[] = []
+      while (i < cell.pieces.length && cell.pieces[i]!.isNote === true) {
+        notes.push(cell.pieces[i]!)
+        i++
+      }
+      i--
+      parts.push(drawNotes(notes))
+    } else {
+      parts.push(pieceBox(els, cell.pieces, i))
+    }
+  }
+
   return (
     <Box flexDirection="row" flexWrap="nowrap" overflow="hidden">
-      {cell.pieces.map((one, i) => (
-        <Box flexShrink={0}>
-          <Text
-            {...(one.isBold === true ? { bold: true } : {})}
-            {...(one.isDim === true ? { dimColor: true } : {})}
-            {...(one.color === undefined ? {} : { color: one.color })}
-          >
-            {i === 0 ? one.text : ` ${one.text}`}
-          </Text>
-        </Box>
-      ))}
+      {parts}
     </Box>
   )
 }
@@ -43,7 +74,14 @@ function line({ Box, Text }: Basic, cell: Cell) {
  * and line. Short of room the cache column alone gives way, cut at its edge,
  * so the windows and the cost stay whole.
  */
-function columns(els: Basic, cells: Cell[], width: number, ringCells: number, drawRing: (bar: BarModel) => JSX.Element) {
+function columns(
+  els: Basic,
+  cells: Cell[],
+  width: number,
+  ringCells: number,
+  drawRing: (bar: BarModel) => JSX.Element,
+  drawNotes?: (notes: TextPiece[]) => JSX.Element,
+) {
   const { Box } = els
 
   return (
@@ -58,7 +96,7 @@ function columns(els: Basic, cells: Cell[], width: number, ringCells: number, dr
           overflow="hidden"
         >
           {cell.bar === undefined ? null : drawRing(cell.bar)}
-          {line(els, cell)}
+          {line(els, cell, drawNotes)}
         </Box>
       ))}
     </Box>
@@ -98,14 +136,53 @@ function ringSvg(bar: BarModel): string {
   )
 }
 
+const escapeXml = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/**
+ * A run of notes stacked in small print, a ring's height: the countdown over
+ * the warning, `2h35m` over `▲ full`; one line alone sits mid-height.
+ */
+function notesSvg(notes: readonly TextPiece[]): { source: string; width: number } {
+  const width = Math.ceil(Math.max(...notes.map(one => [...one.text].length)) * NOTE_CHAR_W) + 2
+  const top = (NOTE_H - notes.length * NOTE_LINE) / 2
+  const lines = notes.map((one, i) => {
+    const fill = one.color ?? NOTE_DIM
+    const y = top + (i + 1) * NOTE_LINE - 2
+    return `<text x="0" y="${y.toFixed(1)}" font-size="${NOTE_FONT}" fill="${fill}">${escapeXml(one.text)}</text>`
+  })
+
+  return {
+    width,
+    source:
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${NOTE_H}" viewBox="0 0 ${width} ${NOTE_H}"` +
+      ` font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-weight="500">` +
+      `${lines.join('')}</svg>`,
+  }
+}
+
 export function desktopBand(els: WithSvg, cells: Cell[], bodyColumns: number) {
   const { Box, Svg } = els
 
-  return columns(els, cells, widthOf(bodyColumns), DESKTOP_RING_CELLS, bar => (
-    <Box marginRight={1} flexShrink={0}>
-      <Svg source={ringSvg(bar)} alt={`${Math.round(usedShare(bar) * 100)}%`} width={RING_PX} height={RING_PX} />
-    </Box>
-  ))
+  return columns(
+    els,
+    cells,
+    widthOf(bodyColumns),
+    DESKTOP_RING_CELLS,
+    bar => (
+      <Box marginRight={1} flexShrink={0}>
+        <Svg source={ringSvg(bar)} alt={`${Math.round(usedShare(bar) * 100)}%`} width={RING_PX} height={RING_PX} />
+      </Box>
+    ),
+    notes => {
+      const { source, width } = notesSvg(notes)
+      return (
+        <Box marginLeft={1} flexShrink={0}>
+          <Svg source={source} alt={notes.map(one => one.text).join(', ')} width={width} height={NOTE_H} />
+        </Box>
+      )
+    },
+  )
 }
 
 // Terminal: each ring a circle glyph filled by quarters, in the window's color.

@@ -318,30 +318,56 @@ test('the band draws four columns, a ring then a line of text in each, one row',
     // nor wraps. The cost closes the row.
     const texts = await ui.findAll({ type: 'Text' })
     const joined = texts.map(one => one.text).join('')
-    expect(joined).toContain('Session 34% · 2h18m')
-    expect(joined).toContain('Fable 9% · 5d')
     expect(joined).toContain('Cache · Warm · 58m · Hit 92%Cost $1.23')
     expect(joined).not.toContain('Time')
     expect(texts.slice(-2).map(one => one.text)).toEqual(['Cost', ' $1.23'])
     if (surface === 'desktop') {
-      // Each ring a thick donut a text line tall, filled by the use; no notch.
+      // Each ring a donut a text line tall, filled by the use; after each window's
+      // figure its countdown in small print, a drawing of its own; the Texts carry
+      // the rest.
+      expect(joined).toContain('Session 34%Weekly 23%Fable 9%Cache')
       const svgs = await ui.findAll({ type: 'Svg' })
-      expect(svgs.map(svg => [svg.props.width, svg.props.height, svg.props.alt])).toEqual([
-        [16, 16, '34%'],
-        [16, 16, '23%'],
-        [16, 16, '9%'],
-        [16, 16, '98%'],
+      expect(svgs.map(svg => [svg.props.height, svg.props.alt])).toEqual([
+        [16, '34%'],
+        [18, '2h18m'],
+        [16, '23%'],
+        [18, '5d'],
+        [16, '9%'],
+        [18, '5d'],
+        [16, '98%'],
       ])
       expect(String(svgs[0]?.props.source)).toContain('stroke-dasharray=')
       expect(String(svgs[0]?.props.source)).toContain('stroke-linecap="round"')
       expect(String(svgs[0]?.props.source)).not.toContain('<line ')
+      expect(String(svgs[1]?.props.source)).toContain('font-size="7.5"')
+      expect(String(svgs[1]?.props.source)).toContain('>2h18m</text>')
     } else {
+      expect(joined).toContain('Session 34% · 2h18m')
+      expect(joined).toContain('Fable 9% · 5d')
       // Each ring a circle glyph filled by quarters, a space after it.
       const rings = (await ui.findAll({ type: 'Text' })).filter(one => /^[○◔◑◕●] $/.test(one.text))
       expect(rings.map(one => one.text)).toEqual(['◔ ', '◔ ', '◔ ', '● '])
     }
     await ui.unmount()
   }
+})
+
+test('on the desktop the reset and the pace warning stack in small print beside the figure', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  on('session.usage', () => ({
+    value: { ...usage, rateLimits: [{ kind: 'five_hour', percentUsed: 60, resetsAt: iso(NOW + 3 * HOUR) }] },
+  }))
+  on('session.authorize', () => ({ value: null }))
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  await $.command.run({ command: 'hud', args: 'refresh', ...TYPED })
+  const ui = await $.ui.mount({ plugin: 'context-hud', surface: 'desktop', ...BAND })
+  const note = (await ui.findAll({ type: 'Svg' }))[1]
+  expect(note?.props.alt).toBe('3h, ▲ 1h20m')
+  const source = String(note?.props.source)
+  expect(source).toContain('>3h</text>')
+  expect(source).toContain(`fill="${RED}">▲ 1h20m</text>`)
+  expect(source.indexOf('>3h<')).toBeLessThan(source.indexOf('▲ 1h20m'))
+  await ui.unmount()
 })
 
 test('/hud hides and shows the band', async ($, on) => {
@@ -401,7 +427,7 @@ test("refused the live call, the band shows the engine's cache and says how old 
   expect(columns.map(box => box.props.flexShrink)).toEqual([0, 0, 0, 1, 0])
   // The cached figure reads `~9%`; at this width its age has gone with the Time figure.
   const joined = (await ui.findAll({ type: 'Text' })).map(one => one.text).join('')
-  expect(joined).toContain('Fable ~9% · 5d')
+  expect(joined).toContain('Fable ~9%Cache')
   await ui.unmount()
 })
 
