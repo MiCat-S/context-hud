@@ -1,0 +1,4 @@
+node_modules/
+.DS_Store
+# Written by the engine when the plugin loads; never committed.
+.claude-plugin/types/

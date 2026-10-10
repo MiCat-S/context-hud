@@ -1,0 +1,19 @@
+{
+  "name": "context-hud",
+  "version": "1.1.0",
+  "description": "One-line usage HUD above the prompt: 5-hour session, weekly, per-model (Fable) windows and the prompt cache, each a ring beside a short line of text.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "MiCat-S"
+  },
+  "repository": "https://github.com/MiCat-S/context-hud",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "mod",
+    "usage",
+    "rate-limit",
+    "hud",
+    "desktop"
+  ]
+}

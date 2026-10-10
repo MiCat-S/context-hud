@@ -1,0 +1,13 @@
+{
+  "name": "context-hud",
+  "owner": {
+    "name": "MiCat-S"
+  },
+  "plugins": [
+    {
+      "name": "context-hud",
+      "source": "./",
+      "description": "One-line usage HUD above the prompt: 5-hour session, weekly, per-model (Fable) windows and the prompt cache, each a ring beside a short line of text."
+    }
+  ]
+}
